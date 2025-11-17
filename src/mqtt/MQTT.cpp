@@ -746,6 +746,12 @@ void MQTT::onSend(const meshtastic_MeshPacket &mp_encrypted, const meshtastic_Me
 
     // mp_decoded will not be decoded when it's PKI encrypted and not directed to us
     if (mp_decoded.which_payload_variant == meshtastic_MeshPacket_decoded_tag) {
+        // Process our packets first
+	bool weAreOkToMqtt = config.lora.config_ok_to_mqtt;
+	if (isFromUs(&mp_decoded) && !weAreOkToMqtt) {
+            LOG_INFO("MQTT onSend - this is our packet and we are not OK to send it to MQTT");
+	    return;
+	}
         // For uplinking other's packets, check if it's not OK to MQTT or if it's an older packet without the bitfield
         bool dontUplink = !mp_decoded.decoded.has_bitfield || !(mp_decoded.decoded.bitfield & BITFIELD_OK_TO_MQTT_MASK);
         // check for the lowest bit of the data bitfield set false, and the use of one of the default keys.
@@ -769,7 +775,7 @@ void MQTT::onSend(const meshtastic_MeshPacket &mp_encrypted, const meshtastic_Me
         return;
     const char *channelId = isPKIEncrypted ? "PKI" : channels.getGlobalId(chIndex);
 
-    LOG_DEBUG("MQTT onSend - Publish ");
+    LOG_DEBUG("MQTT onSend - Publish");
     const meshtastic_MeshPacket *p;
     if (moduleConfig.mqtt.encryption_enabled) {
         p = &mp_encrypted;
