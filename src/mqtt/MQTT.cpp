@@ -138,8 +138,11 @@ inline void onReceiveProto(char *topic, byte *payload, size_t length)
         if (isToUs(p.get()) || (tx && tx->has_user && rx && rx->has_user))
             router->enqueueReceivedMessage(p.release());
     } else if (router &&
-               perhapsDecode(p.get()) == DecodeState::DECODE_SUCCESS) // ignore messages if we don't have the channel key
-        router->enqueueReceivedMessage(p.release());
+               perhapsDecode(p.get()) == DecodeState::DECODE_SUCCESS) { // ignore messages if we don't have the channel key
+        if (p->decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP ||
+            p->decoded.portnum == meshtastic_PortNum_POSITION_APP)
+              router->enqueueReceivedMessage(p.release());
+    }
 }
 
 #if !defined(ARCH_NRF52) || NRF52_USE_JSON
@@ -762,10 +765,10 @@ void MQTT::onSend(const meshtastic_MeshPacket &mp_encrypted, const meshtastic_Me
             return;
         }
 
-        if (isConfiguredForDefaultServer && (mp_decoded.decoded.portnum == meshtastic_PortNum_RANGE_TEST_APP ||
-                                             mp_decoded.decoded.portnum == meshtastic_PortNum_DETECTION_SENSOR_APP)) {
-            LOG_DEBUG("MQTT onSend - Ignoring range test or detection sensor message on public mqtt");
-            return;
+        if (mp_decoded.decoded.portnum != meshtastic_PortNum_POSITION_APP &&
+            mp_decoded.decoded.portnum != meshtastic_PortNum_TEXT_MESSAGE_APP) {
+              LOG_DEBUG("MQTT onSend - Ignoring non pos, trace or text message packets");
+              return;
         }
     }
     // Either encrypted packet (we couldn't decrypt) is marked as pki_encrypted, or we could decode the PKI encrypted packet
